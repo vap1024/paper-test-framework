@@ -1,0 +1,22 @@
+{
+  "bar": {
+    "min_closed": 10,
+    "min_mean_pct": 1.5,
+    "require_without_top1_positive": true
+  },
+  "baskets": [
+    "source-a",
+    "source-b"
+  ],
+  "frozen_hash": "eab24318e07adbb7c95e2caa17aaebb12c269441ca6f7d759dabfd8d8742d2ae",
+  "hypothesis": "Demo only: source-a produces steadier paper returns than source-b under identical mechanics.",
+  "mechanics": {
+    "costs_modelled": false,
+    "costs_note": "Demo data already carries net_pct per position; a real experiment must state its own cost model here, before the start.",
+    "entry": "first synthetic price after the signal timestamp",
+    "exit": "fixed synthetic schedule, identical for both baskets"
+  },
+  "name": "synthetic-demo-two-sources",
+  "paper_size_per_signal": 100,
+  "started_on": "2026-01-05"
+}
