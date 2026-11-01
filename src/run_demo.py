@@ -26,7 +26,11 @@ def main(argv: list[str]) -> int:
     positions = load_journal(ROOT / "examples" / "demo_journal.csv")
     report = render_report(experiment, positions)
     if "--out" in argv:
-        out = Path(argv[argv.index("--out") + 1])
+        out_index = argv.index("--out") + 1
+        if out_index >= len(argv):
+            print("ERROR: --out needs a file path, e.g. --out report.md", file=sys.stderr)
+            return 2
+        out = Path(argv[out_index])
         out.write_text(report, encoding="utf-8")
         print(f"wrote {out}")
     else:

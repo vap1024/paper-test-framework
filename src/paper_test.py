@@ -63,17 +63,26 @@ def parse_journal(text: str) -> list[dict]:
 
     Extra columns are kept as strings. Rows with a non-numeric net_pct
     raise ValueError -- a silent skip would quietly change the sample.
+    Rows without a basket raise ValueError for the same reason: the
+    report scores positions per basket, so a basketless row would be
+    accepted here and then silently dropped from every verdict.
     """
     rows: list[dict] = []
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames is None or "net_pct" not in reader.fieldnames:
         raise ValueError("journal CSV must have a net_pct column")
+    if "basket" not in reader.fieldnames:
+        raise ValueError("journal CSV must have a basket column")
     for line_no, row in enumerate(reader, start=2):
+        basket = (row.get("basket") or "").strip()
+        if not basket:
+            raise ValueError(f"journal line {line_no}: basket is empty")
         try:
             net = float(row["net_pct"])
         except (TypeError, ValueError) as exc:
             raise ValueError(f"journal line {line_no}: net_pct is not a number") from exc
         parsed = {k: v for k, v in row.items() if k is not None}
+        parsed["basket"] = basket
         parsed["net_pct"] = net
         rows.append(parsed)
     return rows
@@ -87,6 +96,8 @@ def load_journal(path: str | Path) -> list[dict]:
 
 def percentile(values: list[float], pct: float) -> float:
     """Linear-interpolation percentile (pct in 0..100)."""
+    if not 0.0 <= pct <= 100.0:
+        raise ValueError(f"percentile pct must be within 0..100, got {pct}")
     if not values:
         raise ValueError("percentile of an empty sample")
     ordered = sorted(values)

@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+import run_demo  # noqa: E402
 from paper_test import (  # noqa: E402
     freeze_hash,
     load_experiment,
@@ -62,6 +63,16 @@ class JournalTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_journal("basket,asset,net_pct\nb,SYN-1,soon\n")
 
+    def test_missing_basket_column_is_an_error(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_journal("asset,net_pct\nSYN-1,5.0\n")
+
+    def test_empty_basket_is_an_error_not_a_silent_drop(self) -> None:
+        # A basketless row parses fine but matches no basket in the
+        # report, so it would vanish from every verdict unnoticed.
+        with self.assertRaises(ValueError):
+            parse_journal("basket,asset,net_pct\n,SYN-1,5.0\n")
+
 
 class StatsTests(unittest.TestCase):
     def test_stats_and_percentiles(self) -> None:
@@ -75,6 +86,22 @@ class StatsTests(unittest.TestCase):
 
     def test_empty_sample_has_no_stats(self) -> None:
         self.assertIsNone(stats_of([]))
+
+    def test_percentile_bounds_return_the_extremes(self) -> None:
+        self.assertEqual(percentile([1.0, 2.0, 3.0, 4.0], 0), 1.0)
+        self.assertEqual(percentile([1.0, 2.0, 3.0, 4.0], 100), 4.0)
+
+    def test_percentile_out_of_range_is_an_error(self) -> None:
+        # Above 100 this used to crash with IndexError; below 0 it
+        # silently extrapolated to a value outside the sample.
+        for bad in (-10, 100.5, 150):
+            with self.assertRaises(ValueError):
+                percentile([1.0, 2.0, 3.0, 4.0], bad)
+
+
+class RunDemoTests(unittest.TestCase):
+    def test_out_without_a_path_is_a_clean_error(self) -> None:
+        self.assertEqual(run_demo.main(["--out"]), 2)
 
 
 class VerdictTests(unittest.TestCase):
