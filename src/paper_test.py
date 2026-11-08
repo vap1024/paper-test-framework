@@ -16,6 +16,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -45,14 +46,45 @@ def verify_frozen(config: dict) -> bool:
 def load_experiment(path: str | Path) -> dict:
     """Load and validate an experiment config; raise ValueError if incomplete."""
     config = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("experiment config must be a JSON object")
     missing = [f for f in REQUIRED_EXPERIMENT_FIELDS if f not in config]
     if missing:
         raise ValueError(f"experiment config is missing fields: {', '.join(missing)}")
-    bar_missing = [f for f in REQUIRED_BAR_FIELDS if f not in config.get("bar", {})]
+    if not isinstance(config["bar"], dict):
+        raise ValueError("experiment bar must be an object")
+    bar_missing = [f for f in REQUIRED_BAR_FIELDS if f not in config["bar"]]
     if bar_missing:
         raise ValueError(f"experiment bar is missing fields: {', '.join(bar_missing)}")
-    if not config["baskets"]:
-        raise ValueError("experiment must name at least one basket")
+    if not isinstance(config["name"], str) or not config["name"].strip():
+        raise ValueError("experiment name must be a non-empty string")
+    if not isinstance(config["hypothesis"], str) or not config["hypothesis"].strip():
+        raise ValueError("experiment hypothesis must be a non-empty string")
+
+    bar = config["bar"]
+    min_closed = bar["min_closed"]
+    if isinstance(min_closed, bool) or not isinstance(min_closed, int) or min_closed < 1:
+        raise ValueError("bar.min_closed must be an integer greater than or equal to 1")
+    min_mean_pct = bar["min_mean_pct"]
+    finite_mean = isinstance(min_mean_pct, int) and not isinstance(min_mean_pct, bool)
+    if isinstance(min_mean_pct, float):
+        finite_mean = math.isfinite(min_mean_pct)
+    if (isinstance(min_mean_pct, bool) or not isinstance(min_mean_pct, (int, float))
+            or not finite_mean):
+        raise ValueError("bar.min_mean_pct must be a finite number")
+    if ("require_without_top1_positive" in bar
+            and not isinstance(bar["require_without_top1_positive"], bool)):
+        raise ValueError("bar.require_without_top1_positive must be a boolean")
+
+    baskets = config["baskets"]
+    if not isinstance(baskets, list):
+        raise ValueError("baskets must be a list")
+    if not baskets:
+        raise ValueError("baskets must contain at least one entry")
+    if any(not isinstance(basket, str) or not basket.strip() for basket in baskets):
+        raise ValueError("baskets entries must be non-empty strings")
+    if len(set(baskets)) != len(baskets):
+        raise ValueError("baskets must not contain duplicates")
     return config
 
 

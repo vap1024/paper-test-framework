@@ -13,6 +13,9 @@
   the non-numeric `net_pct` check already guards against.
 - `run_demo.py --out` without a path now exits with a usage error
   (exit code 2) instead of an `IndexError` traceback.
+- `load_experiment()` now validates bar types and values, requires
+  `baskets` to be a unique list of non-empty strings, and rejects a
+  non-object JSON root with `ValueError`.
 
 ### Added
 
@@ -20,6 +23,8 @@
   that the committed `examples/demo_report.md` matches a fresh demo
   run, on Python 3.11 and 3.12.
 - Tests for the three fixes above (17 tests total).
+- Validation tests for `load_experiment()` and the header-only journal
+  case (25 tests total).
 
 ## 0.1.0 - 2026-10-26
 

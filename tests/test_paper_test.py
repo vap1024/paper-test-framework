@@ -53,6 +53,66 @@ class FreezeTests(unittest.TestCase):
                 load_experiment(path)
 
 
+class LoadExperimentValidationTests(unittest.TestCase):
+    def assert_invalid_config(self, mutate) -> None:
+        import json
+        import tempfile
+
+        config = json.loads((ROOT / "examples" / "demo_experiment.json").read_text(encoding="utf-8"))
+        mutate(config)
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "bad.json"
+            path.write_text(json.dumps(config, allow_nan=True), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_experiment(path)
+
+    def test_min_closed_must_be_a_positive_integer(self) -> None:
+        for value in (0, -3, "two", 2.5, True):
+            with self.subTest(value=value):
+                self.assert_invalid_config(lambda config: config["bar"].__setitem__("min_closed", value))
+
+    def test_min_mean_pct_must_be_finite_number(self) -> None:
+        for value in ("high", None, float("nan"), float("inf")):
+            with self.subTest(value=value):
+                self.assert_invalid_config(lambda config: config["bar"].__setitem__("min_mean_pct", value))
+
+    def test_bar_must_be_an_object(self) -> None:
+        for value in (None, "not-a-dict", []):
+            with self.subTest(value=value):
+                self.assert_invalid_config(lambda config: config.__setitem__("bar", value))
+
+    def test_baskets_must_be_a_unique_list_of_non_empty_strings(self) -> None:
+        for value in ("ABC", [], [""], ["A", "A"], [42]):
+            with self.subTest(value=value):
+                self.assert_invalid_config(lambda config: config.__setitem__("baskets", value))
+
+    def test_config_root_must_be_an_object(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "bad.json"
+            path.write_text("[]", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_experiment(path)
+
+    def test_require_without_top1_positive_must_be_boolean(self) -> None:
+        self.assert_invalid_config(
+            lambda config: config["bar"].__setitem__("require_without_top1_positive", "yes")
+        )
+
+    def test_name_must_be_non_empty(self) -> None:
+        self.assert_invalid_config(lambda config: config.__setitem__("name", ""))
+
+    def test_header_only_journal_marks_every_basket_insufficient(self) -> None:
+        config = load_experiment(ROOT / "examples" / "demo_experiment.json")
+        rows = parse_journal("basket,asset,net_pct\n")
+        self.assertEqual(rows, [])
+        report = render_report(config, rows)
+        for basket in config["baskets"]:
+            with self.subTest(basket=basket):
+                self.assertIn(f"## Basket `{basket}` -- INSUFFICIENT_DATA", report)
+
+
 class JournalTests(unittest.TestCase):
     def test_demo_journal_loads(self) -> None:
         rows = load_journal(ROOT / "examples" / "demo_journal.csv")
